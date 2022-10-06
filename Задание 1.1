@@ -1,0 +1,24 @@
+Задание 1.1.
+Имеется таблица ниже User Events, содержащая события пользователей нескольких проектов. 
+Мспользуя любую удобную БД, решить задачу (написать SQL-запрос) по разметке сессий пользователей. 
+За окончание сессии считать отсутствие активности пользователя более 45 минут. 
+Пользователи разных проектов - разные пользователи. Нумерацию сессий начать с 1. 
+Вывести колонку напротив каждого события с указанием номера сессии к которой это событие относится. 
+Уметь объяснить каждый шаг в написанном SQL
+
+
+select user_id, project_id, event_time, (rank2 + sum(case2) OVER (PARTITION by project_id, user_id order by event_time)) as session_number
+from(
+select user_id , project_id, event_time,
+	event_time - (lag(event_time, 1, null) over (PARTITION BY project_id, user_id order by event_time)) as tt,
+	case 
+		when (extract(hour from (event_time - lag(event_time, 1, null) over (ORDER by project_id, user_id)))*60 +
+		extract(minute from (event_time - lag(event_time, 1, null) over (ORDER by project_id, user_id)))) > 45
+		then 1
+		else 0
+	end as case2,
+	1 as rank2
+from ep e
+group by user_id , project_id, event_time
+) as Aa
+order by event_time, user_id
