@@ -1,0 +1,66 @@
+Задание 1.2.
+Нужно на основе описанной структуры базы данных написать SQL-запросы.
+Таблицы в базе, их описание (4 таблицы):
+
+"`users` — таблица с пользователями сайта:
+`id` — уникальный идентификатор пользователя
+`email` — строковое поле с имейлом пользователя (например, «qwert1123@mail.com»)
+`id_country` — уникальный идентификатор страны
+`date_reg` — дата и время регистрации пользователя (например, «2017-02-27 10:58:05»)"
+
+"`emails_sent` — таблица отправленных писем в рассылке:
+`id` — айди отправленного письма
+`id_user` — пользователь, которому отправили письмо (соответствует `users`.`id`)
+`id_type` — тип письма
+`date_sent` — дата и время отправки письма"
+
+"`emails_clicks` — таблица кликов по письмам:
+`id` — айди клика по письму
+`id_email` — айди письма, по которому был клик (соответствует `emails_sent`.`id`)
+`date_click` — дата и время клика по письму"
+
+"`countries` — список стран:
+`id` — идентификатор страны (соответствует `users`.`id_country`)
+`name` — название страны в человекочитаемом виде
+`group` — к какой группе стран относится страна"
+
+Нужно написать запросы:
+1.2.1. Количество регистраций новых пользователей по дням по группам стран;
+
+select date(date_reg), group, count(users.id)
+from users 
+left join countries on users.id_country = countries.id
+where date_reg > start_date /* дата, з наступного дня після якої починається відлік нових користувачів
+group by date(date_reg), group
+
+1.2.2. Распределение доли регистраций по странам от общего кол-ва регистраций в БД;
+
+select countries.name, count(users.id)/(sum(count(users.id) OVER()) as Share_reg
+from users 
+left join countries on users.id_country = countries.id as uc
+group by countries.name
+
+1.2.3. CTR разных типов писем по дням;
+
+select emails_sent.id_type, date(emails_sent.date_sent), count(emails_clicks.id)/(sum(count(emails_clicks.id) over(partition by emails_sent.id_type)))
+from emails_sent 
+left join emails_clicks on emails_sent.id = emails_clicks.id_email
+group by emails_sent.id_type, date(emails_sent.date_sent)
+ /*Оскільки в формулюванні завдання не уточнено, за замовчуванням дні взято як дата відправки листа
+
+1.2.4. Разница в минутах между самым первым кликом пользователя и 2-м кликом;
+
+select emails_sent.id_user as user_id, mails_sent.id as email_id, 
+	rank() over (partition by mails_sent.id_user, mails_sent.id order by date_click) as rank,
+	case
+	when rank = 2
+	then 
+	(extract(hour from (date_click - (lag(date_click, 1, null) over (partition by emails_sent.id_user, mails_sent.id order by date_click))))*3600+
+	extract(minute from (date_click - (lag(date_click, 1, null) over (partition by emails_sent.id_user, mails_sent.id order by date_click))))*60+
+	extract(second from (date_click - (lag(date_click, 1, null) over (partition by emails_sent.id_user, mails_sent.id order by date_click)))))
+	else Null
+	end as seconds
+from emails_sent 
+left join emails_clicks on emails_sent.id = emails_clicks.id_email
+
+/*Кліки рахуються в рамках одного листа. Результат Null означає, що другого кліку не було
